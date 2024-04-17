@@ -1,0 +1,69 @@
+<body>
+    <div id="main">
+
+    </div>
+    <div id="buttonBox" >  
+        <img style="display:block; margin: auto;" id="rec" src="images/rec.png"> 
+</div>
+</body>
+<script>
+    var socket = new WebSocket("ws://localhost:1337/");
+    const startRecordButton = document.getElementById("rec");
+    var recording = false;
+    let stream;
+    let recorder;
+    var oldblob = new Blob();
+    var recImage = "images/rec.png";
+    var stopRecImage = "images/stoprec.png";
+
+    async function startListening(){
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({audio:true});
+                recorder = new MediaRecorder(stream);
+                console.log("Your microphone audio is being recorded locally.");
+            } catch (err) {
+                alert(err);
+            }
+        }
+
+        startRecordButton.addEventListener("click", async () => {
+            console.log(recording);
+            if(!recording){
+            recording=true;
+            startRecordButton.src=stopRecImage;
+            recorder.start();
+            recorder.addEventListener("dataavailable", async (event) => {
+                var chunks = []   
+                chunks.push(event.data);
+                var blob = new Blob(chunks, {type: "audio/webm" });
+                if (blob.size != oldblob.size){
+                    var toSend = new Object();
+                    //toSend.userID = userID;
+                    toSend.action = "processVoice";
+                    //toSend.language = languagelist[languageChoice.value];
+                    var jsonToSend = JSON.stringify(toSend);
+                    socket.send(jsonToSend);
+                    socket.send(blob);
+                    oldblob = blob;
+                }
+            });
+                console.log("Your microphone audio is being recorded locally.");
+            }else{
+                recording=false;
+                startRecordButton.src=recImage;
+                recorder.stop();
+                console.log("Your microphone audio has been successfully recorded locally.");
+            }
+        });   
+    socket.onopen = function(e) {
+            console.log( "Connection established");
+            socket.send(JSON.stringify({"action":"hello world"}));
+            startListening();
+    };
+
+    socket.onmessage = function(event){
+        console.log(event)
+        var jsonObj = JSON.parse(event.data)
+        document.getElementById("main").innerHTML = jsonObj["bookline"];
+    }
+</script>
